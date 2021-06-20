@@ -22,7 +22,7 @@ class todolist(commands.Cog):
         data[x] = data[x].split(": ")
       tabel = list(db.keys())
       for x in tabel:
-        if db[x][0] == data[1][1] and db[x][1] == data[2][1] and db[x][2] == data[3][1]:
+        if db[x][0] == data[1][1] and db[x][1] == data[2][1] and db[x][2] == data[3][1] and db[x][3] == str(channel.guild.id):
           del db[x]
           await channel.send("```Data berhasil dihapus```")
           return
@@ -55,38 +55,49 @@ class todolist(commands.Cog):
   @commands.command()
   async def all(self, ctx):
     data = list(db.keys())
+    id_server = str(ctx.guild.id)
     if len(data) == 0:
       await ctx.send("```Data masih kosong```")
     else:
       count = 1
+      status = False
       for x in data:
-        print(db[x])
-        tanggalwaktu_deadline = str(db[x][1]) + " " + str(db[x][2])
-        tanggalwaktu_deadline = datetime.datetime.strptime(tanggalwaktu_deadline, '%d/%m/%Y %H:%M:%S')
-        tanggalwaktu_sekarang = datetime.datetime.now()
-        sisa = str(tanggalwaktu_deadline - tanggalwaktu_sekarang).split()
-        if len(sisa) == 1:
-          sisa_waktu = sisa[0][0:8]
-          await ctx.send("**" + "Task " + str(count) + "**")
-          data = await ctx.send("```Nama\t\t\t\t\t\t\t: {}\nTanggal Deadline\t\t\t\t: {}\nWaktu Deadline\t\t\t\t  : {}\nSisa Waktu\t\t\t\t\t  : {}```".format(count, db[x][0], db[x][1], db[x][2], sisa_waktu))
-        else:
-          sisa_hari = sisa[0] + " " + sisa[1]
-          sisa_waktu = sisa[2][0:8]
-          data = await ctx.send("**Task {}**\n```Nama\t\t\t\t\t\t\t: {}\nTanggal Deadline\t\t\t\t: {}\nWaktu Deadline\t\t\t\t  : {}\nSisa Waktu\t\t\t\t\t  : {}```".format(count, db[x][0], db[x][1], db[x][2], (sisa_hari + " " + sisa_waktu)))
-        count += 1
-        emoji = "<:deletesign:853677705861267456>"
-        await data.add_reaction(emoji)
-        
+        if db[x][3] == id_server:
+          status = True
+          tanggalwaktu_deadline = str(db[x][1]) + " " + str(db[x][2])
+          tanggalwaktu_deadline = datetime.datetime.strptime(tanggalwaktu_deadline, '%d/%m/%Y %H:%M:%S')
+          tanggalwaktu_sekarang = datetime.datetime.now()
+          sisa = str(tanggalwaktu_deadline - tanggalwaktu_sekarang).split()
+          if len(sisa) == 1:
+            sisa_waktu = sisa[0][0:8]
+            await ctx.send("**" + "Task " + str(count) + "**")
+            data = await ctx.send("```Nama\t\t\t\t\t\t\t: {}\nTanggal Deadline\t\t\t\t: {}\nWaktu Deadline\t\t\t\t  : {}\nSisa Waktu\t\t\t\t\t  : {}```".format(count, db[x][0], db[x][1], db[x][2], sisa_waktu))
+          else:
+            sisa_hari = sisa[0] + " " + sisa[1]
+            sisa_waktu = sisa[2][0:8]
+            data = await ctx.send("**Task {}**\n```Nama\t\t\t\t\t\t\t: {}\nTanggal Deadline\t\t\t\t: {}\nWaktu Deadline\t\t\t\t  : {}\nSisa Waktu\t\t\t\t\t  : {}```".format(count, db[x][0], db[x][1], db[x][2], (sisa_hari + " " + sisa_waktu)))
+          count += 1
+          emoji = "<:deletesign:853677705861267456>"
+          await data.add_reaction(emoji)
+      if not status:
+        await ctx.send("```Data masih kosong```")      
+
   @commands.command()
-  async def add(self, ctx, nama, tanggal, waktu):      
+  async def add(self, ctx, nama, tanggal, waktu):    
+    id_server = str(ctx.guild.id)  
     data = list(db.keys())
-    for x in data:
-      # print(db[x])
-      if nama == db[x][0] and tanggal == db[x][1] and waktu == db[x][2]:
-        await ctx.send("Data sudah pernah dimasukkan, jika ingin mengubah silahkan gunakan t!update sesuai dengan panduan di dalam t!help")
-        return
-    db[str(len(db.keys()) + 1)] = [nama, tanggal, waktu]
-    await ctx.send("Data telah dimasukkan")
+    try:
+      datetime.datetime.strptime(tanggal + " " + waktu, '%d/%m/%Y %H:%M:%S')
+    except:
+      await ctx.send("Format tanggal/waktu salah.\nContoh: t!add nama_tugas 25/05/2021 23:59:99")
+    else:
+      for x in data:
+        # print(db[x])
+        if nama == db[x][0] and tanggal == db[x][1] and waktu == db[x][2]:
+          await ctx.send("Data sudah pernah dimasukkan, jika ingin mengubah silahkan gunakan t!update sesuai dengan panduan di dalam t!help")
+          return
+      db[str(len(db.keys()) + 1)] = [nama, tanggal, waktu, id_server]
+      await ctx.send("Data telah dimasukkan")
 
   @commands.command()
   async def clear(self, ctx, amount=100):
@@ -126,13 +137,13 @@ class todolist(commands.Cog):
 
   async def background_task(self):
     now = datetime.datetime.now()
-    if now.time() > datetime.time(13, 0, 0):  # Make sure loop doesn't start after {WHEN} as then it will send immediately the first time as negative seconds will make the sleep yield instantly
+    if now.time() > datetime.time(1, 0, 0):  # Make sure loop doesn't start after {WHEN} as then it will send immediately the first time as negative seconds will make the sleep yield instantly
       tomorrow = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time(0))
       seconds = (tomorrow - now).total_seconds()  # Seconds until tomorrow (midnight)
       await asyncio.sleep(seconds)   # Sleep until tomorrow and then the loop will start 
     while True:
       now = datetime.datetime.now() # You can do now() or a specific timezone if that matters, but I'll leave it with utcnow
-      target_time = datetime.datetime.combine(now.date(), datetime.time(13, 0, 0))  # 6:00 PM today (In UTC)
+      target_time = datetime.datetime.combine(now.date(), datetime.time(1, 0, 0))  # 6:00 PM today (In UTC)
       seconds_until_target = (target_time - now).total_seconds()
       await asyncio.sleep(seconds_until_target)  # Sleep until we hit the target time
       await self.reminder()  # Call the helper function that sends the message
